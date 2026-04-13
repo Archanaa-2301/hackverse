@@ -2,51 +2,27 @@
 
 import React, { useState, useEffect } from "react";
 import Papa from "papaparse";
-import { motion } from "motion/react";
-import {
-  Users,
-  AlertCircle,
-  Lock,
-  FileSpreadsheet,
-  Download
-} from "lucide-react";
-import { Button } from "@/src/components/ui/button";
-import { Card } from "@/src/components/ui/card";
-import { Input } from "@/src/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
-import { toast } from "sonner";
-import { cn } from "@/src/lib/utils";
 
 export default function Admin() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  const [adminId, setAdminId] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [adminFile, setAdminFile] = useState<File | null>(null);
-  const [datasetStatus, setDatasetStatus] = useState({ loaded: false, entries: 0 });
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
 
   // ✅ load submissions
   useEffect(() => {
     const saved = localStorage.getItem("leaderboard");
-    if (saved) setLeaderboard(JSON.parse(saved));
+    if (saved) {
+      setLeaderboard(JSON.parse(saved));
+    }
   }, []);
 
-  const handleAdminAuth = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminId === "hackverse@123" && adminPassword === "Hack@1234") {
-      setIsAuthorized(true);
-      toast.success("Access Granted.");
-    } else {
-      toast.error("Invalid credentials");
+  // ✅ upload dataset
+  function handleUpload() {
+    if (!file) {
+      alert("Select file");
+      return;
     }
-  };
 
-  // 🔥 SAVE DATASET
-  const handleAdminUpload = () => {
-    if (!adminFile) return;
-
-    Papa.parse(adminFile, {
+    Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: function (results: any) {
@@ -54,33 +30,27 @@ export default function Admin() {
 
         localStorage.setItem("dataset", JSON.stringify(data));
 
-        setDatasetStatus({
-          loaded: true,
-          entries: data.length
-        });
-
-        toast.success("Dataset uploaded");
+        alert("Dataset uploaded: " + data.length + " rows");
       }
     });
-  };
+  }
 
-  // 🔥 RESET
-  const handleReset = () => {
+  // ✅ reset leaderboard
+  function handleReset() {
     localStorage.removeItem("leaderboard");
     setLeaderboard([]);
-    toast.success("Reset done");
-    setShowResetConfirm(false);
-  };
+    alert("Reset done");
+  }
 
-  // 🔥 DOWNLOAD CSV
-  const handleDownload = () => {
+  // ✅ download CSV
+  function downloadCSV() {
     if (leaderboard.length === 0) return;
 
     const headers = Object.keys(leaderboard[0]);
     let csv = headers.join(",") + "\n";
 
     leaderboard.forEach((row) => {
-      csv += headers.map((h) => row[h]).join(",") + "\n";
+      csv += headers.map(h => row[h]).join(",") + "\n";
     });
 
     const blob = new Blob([csv]);
@@ -90,6 +60,26 @@ export default function Admin() {
     a.href = url;
     a.download = "submissions.csv";
     a.click();
-  };
+  }
 
-  // 🔥 YOUR UI BELOW (UNCHANGED)
+  return (
+    <div style={{ padding: 20 }}>
+      <h1>Admin Panel</h1>
+
+      <input type="file" onChange={(e)=>setFile(e.target.files?.[0] || null)} />
+      <br /><br />
+
+      <button onClick={handleUpload}>Upload Dataset</button>
+      <button onClick={handleReset}>Reset</button>
+      <button onClick={downloadCSV}>Download CSV</button>
+
+      <h2>Submissions</h2>
+
+      {leaderboard.map((x, i) => (
+        <div key={i}>
+          {x.team} - {x.score.toFixed(2)}%
+        </div>
+      ))}
+    </div>
+  );
+}
