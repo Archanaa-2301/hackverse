@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
-import { Button } from "@/src/components/ui/button";
-import { Input } from "@/src/components/ui/input";
 
 export default function Home() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
@@ -9,31 +7,52 @@ export default function Home() {
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
 
-  // LOAD leaderboard
+  // LOAD LEADERBOARD
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem("leaderboard") || "[]");
     setLeaderboard(data);
   }, []);
 
-  // 🔐 ADMIN UPLOAD
+  // 🔐 ADMIN CSV UPLOAD (FIXED)
   const handleAdminUpload = (e: any) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const file = e.target.files?.[0];
+
+    if (!file) {
+      alert("No file selected ❌");
+      return;
+    }
+
+    if (!file.name.endsWith(".csv")) {
+      alert("Upload CSV only ❌");
+      return;
+    }
 
     const reader = new FileReader();
 
-    reader.onload = function (event: any) {
-      const text = event.target.result;
+    reader.onload = (event: any) => {
+      try {
+        const text = event.target.result;
 
-      const rows = text
-        .split("\n")
-        .map((r: string) =>
-          r.split(",").map((c) => c.trim().toLowerCase())
-        );
+        const rows = text
+          .split("\n")
+          .filter((r: string) => r.trim() !== "")
+          .map((r: string) =>
+            r.split(",").map((c) => c.trim().toLowerCase())
+          );
 
-      localStorage.setItem("correctDataset", JSON.stringify(rows));
+        if (rows.length === 0) {
+          alert("Invalid CSV ❌");
+          return;
+        }
 
-      alert("✅ Admin dataset uploaded");
+        localStorage.setItem("correctDataset", JSON.stringify(rows));
+
+        console.log("ADMIN DATA:", rows);
+
+        alert("✅ Admin dataset uploaded!");
+      } catch (err) {
+        alert("Error reading file ❌");
+      }
     };
 
     reader.readAsText(file);
@@ -44,24 +63,25 @@ export default function Home() {
     e.preventDefault();
 
     if (!file || !team || !name) {
-      alert("Fill all fields");
+      alert("Fill all fields ❌");
       return;
     }
 
     const correctData = JSON.parse(localStorage.getItem("correctDataset") || "[]");
 
     if (correctData.length === 0) {
-      alert("Admin has not uploaded dataset ❌");
+      alert("Admin dataset missing ❌");
       return;
     }
 
     const reader = new FileReader();
 
-    reader.onload = function (event: any) {
+    reader.onload = (event: any) => {
       const text = event.target.result;
 
       const studentData = text
         .split("\n")
+        .filter((r: string) => r.trim() !== "")
         .map((r: string) =>
           r.split(",").map((c) => c.trim().toLowerCase())
         );
@@ -126,7 +146,7 @@ export default function Home() {
     reader.readAsText(file);
   };
 
-  // 📊 DOWNLOAD EXCEL (2 SHEETS)
+  // 📊 DOWNLOAD EXCEL
   const downloadExcel = () => {
     const data = JSON.parse(localStorage.getItem("leaderboard") || "[]");
 
@@ -148,7 +168,6 @@ export default function Home() {
 
     data.forEach((d: any) => {
       const key = d.team.toLowerCase();
-
       if (!teamMap[key] || d.score > teamMap[key].score) {
         teamMap[key] = d;
       }
@@ -193,14 +212,22 @@ export default function Home() {
       {/* STUDENT */}
       <h2>Submit</h2>
       <form onSubmit={handleSubmit}>
-        <Input placeholder="Team Name" value={team} onChange={(e) => setTeam(e.target.value)} />
-        <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+        <input
+          placeholder="Team Name"
+          value={team}
+          onChange={(e) => setTeam(e.target.value)}
+        />
+        <input
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
         <input type="file" accept=".csv" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-        <Button type="submit">Submit</Button>
+        <button type="submit">Submit</button>
       </form>
 
       {/* DOWNLOAD */}
-      <Button onClick={downloadExcel}>Download Excel</Button>
+      <button onClick={downloadExcel}>Download Excel</button>
 
       {/* LEADERBOARD */}
       <h2>Leaderboard</h2>
