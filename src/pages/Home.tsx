@@ -2,31 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import Papa from "papaparse";
-import { motion } from "motion/react";
-import {
-  Trophy,
-  Upload,
-  RefreshCcw,
-  ChevronRight,
-  Terminal,
-  Zap,
-  FileSpreadsheet
-} from "lucide-react";
-import { Button } from "@/src/components/ui/button";
-import { Card } from "@/src/components/ui/card";
-import { Input } from "@/src/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
-import { toast } from "sonner";
-import { cn } from "@/src/lib/utils";
 
 export default function Home() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [team, setTeam] = useState("");
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
 
-  // ✅ load leaderboard
+  // ✅ load leaderboard from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("leaderboard");
     if (saved) {
@@ -34,21 +17,18 @@ export default function Home() {
     }
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: any) => {
     e.preventDefault();
 
     if (!file || !team || !name) {
-      toast.error("Please fill all fields and select a CSV file.");
+      alert("Fill all fields");
       return;
     }
-
-    setIsSubmitting(true);
 
     const dataset = JSON.parse(localStorage.getItem("dataset") || "[]");
 
     if (dataset.length === 0) {
-      toast.error("Admin dataset not uploaded yet");
-      setIsSubmitting(false);
+      alert("Admin dataset not uploaded");
       return;
     }
 
@@ -56,12 +36,12 @@ export default function Home() {
       header: true,
       skipEmptyLines: true,
       complete: function (results: any) {
-        const parsedData = results.data;
+        const parsed = results.data;
 
         let score = 0;
 
-        for (let i = 0; i < parsedData.length; i++) {
-          if (parsedData[i]?.prediction === dataset[i]?.answer) {
+        for (let i = 0; i < parsed.length; i++) {
+          if (parsed[i]?.prediction === dataset[i]?.answer) {
             score++;
           }
         }
@@ -69,7 +49,6 @@ export default function Home() {
         score = (score / dataset.length) * 100;
 
         const newEntry = {
-          id: Date.now(),
           team,
           name,
           score,
@@ -79,7 +58,7 @@ export default function Home() {
 
         let updated = [...leaderboard];
 
-        const index = updated.findIndex(
+        let index = updated.findIndex(
           (x) => x.team.toLowerCase() === team.toLowerCase()
         );
 
@@ -91,19 +70,38 @@ export default function Home() {
 
         updated.sort((a, b) => b.score - a.score);
 
-        updated.forEach((item, i) => (item.rank = i + 1));
+        updated.forEach((x, i) => (x.rank = i + 1));
 
         setLeaderboard(updated);
         localStorage.setItem("leaderboard", JSON.stringify(updated));
 
-        toast.success(`Score: ${score.toFixed(2)}%`);
-
-        setFile(null);
-        setTeam("");
-        setName("");
-        setIsSubmitting(false);
+        alert("Score: " + score.toFixed(2));
       }
     });
   };
 
-  // 🔥 YOUR UI BELOW (UNCHANGED)
+  return (
+    <div style={{ padding: 20 }}>
+      <h1>Submission Page</h1>
+
+      <input placeholder="Team" value={team} onChange={(e)=>setTeam(e.target.value)} />
+      <br /><br />
+
+      <input placeholder="Name" value={name} onChange={(e)=>setName(e.target.value)} />
+      <br /><br />
+
+      <input type="file" onChange={(e)=>setFile(e.target.files?.[0] || null)} />
+      <br /><br />
+
+      <button onClick={handleSubmit}>Submit</button>
+
+      <h2>Leaderboard</h2>
+
+      {leaderboard.map((x, i) => (
+        <div key={i}>
+          {x.rank}. {x.team} - {x.score.toFixed(2)}%
+        </div>
+      ))}
+    </div>
+  );
+}
