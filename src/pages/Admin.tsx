@@ -2,46 +2,101 @@
 
 import React, { useState } from "react";
 import Papa from "papaparse";
+import { motion } from "motion/react";
+import { 
+  Users, 
+  AlertCircle, 
+  Lock,
+  FileSpreadsheet,
+  Download
+} from "lucide-react";
+import { Button } from "@/src/components/ui/button";
+import { Card } from "@/src/components/ui/card";
+import { Input } from "@/src/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
+import { toast } from "sonner";
+import { cn } from "@/src/lib/utils";
 
 export default function Admin() {
-  const [data, setData] = useState<any[]>([]);
-  const [file, setFile] = useState<File | null>(null);
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [adminId, setAdminId] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [adminFile, setAdminFile] = useState<File | null>(null);
+  const [isAdminUploading, setIsAdminUploading] = useState(false);
+  const [datasetStatus, setDatasetStatus] = useState<{ loaded: boolean; entries: number }>({ loaded: false, entries: 0 });
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  // ✅ Upload & parse CSV
-  function handleUpload(e: any) {
-    const selectedFile = e.target.files[0];
+  // ✅ AUTH SAME
+  const handleAdminAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminId === "hackverse@123" && adminPassword === "Hack@1234") {
+      setIsAuthorized(true);
+      toast.success("Access Granted.");
+    } else {
+      toast.error("Invalid Admin Credentials.");
+    }
+  };
 
-    if (!selectedFile) return;
+  // 🔥 FIXED UPLOAD (NO BACKEND)
+  const handleAdminUpload = () => {
+    if (!adminFile) {
+      toast.error("Please select CSV file");
+      return;
+    }
 
-    Papa.parse(selectedFile, {
+    setIsAdminUploading(true);
+
+    Papa.parse(adminFile, {
       header: true,
       skipEmptyLines: true,
       complete: function (results: any) {
-        const parsedData = results.data;
+        const data = results.data;
 
-        console.log("Parsed Data:", parsedData);
+        if (!data || data.length === 0) {
+          toast.error("Invalid dataset");
+          setIsAdminUploading(false);
+          return;
+        }
 
-        setData(parsedData);
+        setDatasetStatus({
+          loaded: true,
+          entries: data.length,
+        });
 
-        alert("CSV Loaded Successfully");
+        toast.success(`Dataset loaded: ${data.length} rows`);
+
+        setIsAdminUploading(false);
       },
       error: function () {
-        alert("CSV parsing failed");
+        toast.error("CSV parsing failed");
+        setIsAdminUploading(false);
       },
     });
-  }
+  };
 
-  // ✅ Download full CSV
-  function downloadAll() {
-    if (data.length === 0) return;
+  // 🔥 RESET (LOCAL ONLY)
+  const handleReset = () => {
+    setLeaderboard([]);
+    setDatasetStatus({ loaded: false, entries: 0 });
+    setShowResetConfirm(false);
+    toast.success("Leaderboard reset successful.");
+  };
 
-    const headers = Object.keys(data[0]);
+  // 🔥 DOWNLOAD CSV
+  const handleDownloadExcel = () => {
+    if (leaderboard.length === 0) {
+      toast.error("No data to download");
+      return;
+    }
+
+    const headers = Object.keys(leaderboard[0]);
     let csv = headers.join(",") + "\n";
 
-    for (let i = 0; i < data.length; i++) {
+    for (let i = 0; i < leaderboard.length; i++) {
       let row = "";
       for (let j = 0; j < headers.length; j++) {
-        row += data[i][headers[j]];
+        row += leaderboard[i][headers[j]];
         if (j < headers.length - 1) row += ",";
       }
       csv += row + "\n";
@@ -52,64 +107,64 @@ export default function Admin() {
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = "all_data.csv";
+    a.download = "submissions.csv";
     a.click();
-  }
-
-  // ✅ Top 15 (best per team)
-  function downloadTop15() {
-    if (data.length === 0) return;
-
-    let map: any = {};
-
-    for (let i = 0; i < data.length; i++) {
-      const row = data[i];
-      const team = row.team_name?.toLowerCase();
-
-      if (!team) continue;
-
-      if (!map[team] || Number(row.score) > Number(map[team].score)) {
-        map[team] = row;
-      }
-    }
-
-    let best = Object.values(map);
-
-    best.sort((a: any, b: any) => Number(b.score) - Number(a.score));
-
-    const top15 = best.slice(0, 15);
-
-    const headers = Object.keys(top15[0]);
-    let csv = headers.join(",") + "\n";
-
-    for (let i = 0; i < top15.length; i++) {
-      let row = "";
-      for (let j = 0; j < headers.length; j++) {
-        row += top15[i][headers[j]];
-        if (j < headers.length - 1) row += ",";
-      }
-      csv += row + "\n";
-    }
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "top15.csv";
-    a.click();
-  }
+  };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Admin Panel</h2>
+    <main className="relative z-10 max-w-7xl mx-auto px-6 py-16">
+      <motion.section className="max-w-4xl mx-auto">
+        {!isAuthorized ? (
+          <Card className="glass border-cyan-400/30 p-10 space-y-6 rounded-[2rem] max-w-md mx-auto">
+            <form onSubmit={handleAdminAuth} className="space-y-4">
+              <Input value={adminId} onChange={(e)=>setAdminId(e.target.value)} placeholder="Admin ID"/>
+              <Input type="password" value={adminPassword} onChange={(e)=>setAdminPassword(e.target.value)} placeholder="Password"/>
+              <Button type="submit" className="w-full">AUTHORIZE</Button>
+            </form>
+          </Card>
+        ) : (
+          <div className="space-y-10">
+            <Card className="glass border-cyan-400/30 p-10 space-y-10 rounded-[2rem]">
 
-      <input type="file" accept=".csv" onChange={handleUpload} />
+              <Input type="file" accept=".csv" onChange={(e)=>setAdminFile(e.target.files?.[0] || null)} />
 
-      <br /><br />
+              <Button onClick={handleAdminUpload}>
+                {isAdminUploading ? "SYNCING..." : "SYNC MASTER DATASET"}
+              </Button>
 
-      <button onClick={downloadAll}>Download All CSV</button>
-      <button onClick={downloadTop15}>Download Top 15</button>
-    </div>
+              <Button onClick={handleDownloadExcel}>
+                DOWNLOAD CSV
+              </Button>
+
+              <Button onClick={handleReset}>
+                RESET
+              </Button>
+
+            </Card>
+
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Team</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Score</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {leaderboard.map((entry, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{entry.team}</TableCell>
+                      <TableCell>{entry.name}</TableCell>
+                      <TableCell>{entry.score}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          </div>
+        )}
+      </motion.section>
+    </main>
   );
 }
